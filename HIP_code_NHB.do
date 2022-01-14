@@ -135,7 +135,6 @@ graph save "Graph" Figure2.gph, replace
 graph export Figure2.pdf, replace
 graph export Figure2.png, replace
 
-**# Bookmark #2
 **Figure 3
 gen distance=time-time_HIPcomp
 cap drop distance_year
@@ -174,12 +173,12 @@ graph export Figure4.pdf, replace
 graph export Figure4.png, replace
 
 **Figure 5
-gen high_temp=(temp_mean_r10km>28.9)
-gen high_rain=(rain_days_r10km>22.3)
-gen high_psi=(psi_r10km>=100) 
+gen temp_high=(temp_mean_r10km>28.9)
+gen rain_high=(rain_days_r10km>22.3)
+gen psi_high=(psi_r10km>=100) 
 
 foreach v in temp rain psi{
-reghdfe ln_wat 1.post_comp i.group#1.`v'_high ln_temp ln_rain ln_psi 1.HIP#c.time, absorb(i.premiseno i.time) cluster(pcode time) compact poolsize(5)
+reghdfe ln_wat 1.post_comp i.group#1.`v'_high temp_high rain_high psi_high 1.HIP#c.time, absorb(i.premiseno i.time) cluster(pcode time) compact poolsize(5)
 eststo `v'_plot
 coefplot `v'_plot, ///
 keep(*.group*) ciopts(recast(rcap)) scheme(plottig) vertical ytitle("Log of monthly water consumption") xsize(3.45) ysize(2.5) ylabel(-0.02(0.01)0.02,format(%5.2f)) yline(0) omitted ///
@@ -410,37 +409,62 @@ drop if ext==1
 bysort pcode (time): gen pcn=_n
 keep if pcn==1
 
-foreach v in ptype flatage gender ethnicity elderly young fsize{
-	gen se_`v'=`v'
+
+foreach v in flatage ptype fsize {
+cap drop median 
+cap drop upq 
+cap drop loq 
+cap drop iqr 
+cap drop upper 
+cap drop lower 
+cap drop mean
+  egen median = median(`v'), by(HIP)
+  egen upq = pctile(`v'), p(75) by(HIP)
+  egen loq = pctile(`v'), p(25) by(HIP)
+  egen iqr = iqr(`v'), by(HIP)
+  egen upper = max(min(`v', upq + 1.5 * iqr)), by(HIP)
+  egen lower = min(max(`v', loq - 1.5 * iqr)), by(HIP)
+  egen mean = mean(`v'), by(HIP)
+  
+ twoway rbar med upq HIP, pstyle(p1) blc(gs15) bfc(gs8) barw(0.35) || ///
+ rbar med loq HIP, pstyle(p1) blc(gs15) bfc(gs8) barw(0.35) || ///
+ rspike upq upper HIP, pstyle(p1) || ///
+ rspike loq lower HIP, pstyle(p1) || ///
+ rcap upper upper HIP, pstyle(p1) msize(*2) || ///
+ rcap lower lower HIP, pstyle(p1) msize(*2) || ///
+ scatter `v' HIP if !inrange(`v', lower, upper), ms(Oh) || ///
+ scatter mean HIP, ms(Oh) ///
+ legend(off) xlab(0 "non-HIP" 1 "HIP") xtitle("") xscale(range(-1,2)) scheme(plottig)
+ graph save `v'_HIP.gph, replace
 }
-collapse (mean)ptype flatage gender ethnicity elderly young fsize (semean) se_ptype se_flatage se_gender se_ethnicity se_elderly se_young se_fsize , by(HIP)
-foreach v in ptype flatage gender ethnicity elderly young fsize{
-	gen `v'_upp=`v'+1.96*se_`v'
-    gen `v'_low=`v'-1.96*se_`v'
+
+foreach v in gender ethnicity elderly young{
+cap drop median 
+cap drop upq 
+cap drop loq 
+cap drop iqr 
+cap drop upper 
+cap drop lower 
+cap drop mean
+  egen median = median(`v'), by(HIP)
+  egen upq = pctile(`v'), p(75) by(HIP)
+  egen loq = pctile(`v'), p(25) by(HIP)
+  egen iqr = iqr(`v'), by(HIP)
+  egen upper = max(min(`v', upq + 1.5 * iqr)), by(HIP)
+  egen lower = min(max(`v', loq - 1.5 * iqr)), by(HIP)
+  egen mean = mean(`v'), by(HIP)
+  
+ twoway rbar med upq HIP, pstyle(p1) blc(gs15) bfc(gs8) barw(0.35) || ///
+ rbar med loq HIP, pstyle(p1) blc(gs15) bfc(gs8) barw(0.35) || ///
+ rspike upq upper HIP, pstyle(p1) || ///
+ rspike loq lower HIP, pstyle(p1) || ///
+ rcap upper upper HIP, pstyle(p1) msize(*2) || ///
+ rcap lower lower HIP, pstyle(p1) msize(*2) || ///
+ scatter `v' HIP if !inrange(`v', lower, upper), ms(Oh) || ///
+ scatter mean HIP, ms(Oh) ///
+ legend(off) xlab(0 "non-HIP" 1 "HIP") xtitle("") xscale(range(-1,2)) scheme(plottig) yscale(range(0,1))
+ graph save `v'_HIP.gph, replace
 }
-
-tostring HIP, gen(HIP_str)
-
-tw  (bar flatage HIP, barw(0.2)) (rcap flatage_upp flatage_low HIP), ytitle("Mean year of flat completion") legend(off) scheme(plottig) xlab(0 "non-HIP" 1 "HIP") xtitle("") xscale(range(-1,2))
-graph save flatage_HIP.gph, replace
-
-tw (bar ptype HIP, barw(0.2)) (rcap ptype_upp ptype_low HIP), ytitle("Mean number of rooms") ylab(1(1)5) scheme(plottig)  xlab(0 "non-HIP" 1 "HIP") xtitle("") xscale(range(-1,2)) legend(off)
-graph save ptypee_HIP.gph, replace
-
-tw (bar gender HIP, barw(0.2)) (rcap gender_upp gender_low HIP), ytitle("Mean proportion of male") ylab(0(0.2)1) scheme(plottig)  xlab(0 "non-HIP" 1 "HIP") xtitle("") xscale(range(-1,2)) legend(off)
-graph save gender_HIP.gph, replace
-
-tw (bar ethnicity HIP, barw(0.2)) (rcap ethnicity_upp ethnicity_low HIP),  ytitle("Mean proportion of Chinese") ylab(0(0.2)1) legend(off) scheme(plottig) xlab(0 "non-HIP" 1 "HIP") xtitle("") xscale(range(-1,2)) 
-graph save ethnicity_HIP.gph, replace 
-
-tw (bar elderly HIP, barw(0.2)) (rcap elderly_upp elderly_low HIP), ytitle("Mean proportion of elderly") ylab(0(0.2)1) legend(off) scheme(plottig) xlab(0 "non-HIP" 1 "HIP") xtitle("") xscale(range(-1,2)) 
-graph save elderly_HIP.gph, replace
-
-tw (bar young HIP, barw(0.2)) (rcap young_upp young_low HIP),  ytitle("Mean proportion of young") ylab(0(0.2)1) legend(off) scheme(plottig) xlab(0 "non-HIP" 1 "HIP") xtitle("") xscale(range(-1,2)) 
-graph save young_HIP.gph, replace
-
-tw (bar fsize HIP, barw(0.2)) (rcap fsize_upp fsize_low HIP), ytitle("Mean family size") ylab(1(1)5) legend(off) scheme(plottig) xlab(0 "non-HIP" 1 "HIP") xtitle("") xscale(range(-1,2)) 
-graph save fsize_HIP.gph,replace 
 
 foreach v in ptype flatage fsize gender ethnicity elderly young{
 	graph use `v'_HIP
@@ -449,36 +473,43 @@ foreach v in ptype flatage fsize gender ethnicity elderly young{
 	graph save `v'_HIP,replace
 }
 graph use ptype_HIP
-gr_edit .b1title.text = {`"(a) Mean flat size"'}
+gr_edit .yaxis1.title.text = {`"Flat size"'}
+gr_edit .b1title.text = {`"(a) Flat size"'}
 graph save ptype_HIP, replace
 
 graph use flatage_HIP
-gr_edit .b1title.text = {`"(b) Mean flat age"'}
+gr_edit .yaxis1.title.text = {`"Year of completion"'}
+gr_edit .b1title.text = {`"(b) Year of completion"'}
 graph save flatage_HIP, replace
 
 graph use fsize_HIP
-gr_edit .b1title.text = {`"(c) Mean family size"'}
+gr_edit .yaxis1.title.text = {`"Family size"'}
+gr_edit .b1title.text = {`"(c) Family size"'}
 graph save fsize_HIP, replace
 
 graph use gender_HIP
-gr_edit .b1title.text = {`"(d) Mean proportion of male"'}
+gr_edit .yaxis1.title.text = {`"Proportion of male"'}
+gr_edit .b1title.text = {`"(d) Proportion of male"'}
 graph save gender_HIP, replace
 
 graph use ethnicity_HIP
-gr_edit .b1title.text = {`"(e) Mean proportion of Chinese"'}
+gr_edit .yaxis1.title.text = {`"Proportion of Chinese"'}
+gr_edit .b1title.text = {`"(e) Proportion of Chinese"'}
 graph save ethnicity_HIP, replace
 
 graph use elderly_HIP
-gr_edit .b1title.text = {`"(f) Mean proportion of elderly"'}
+gr_edit .yaxis1.title.text = {`"Proportion of elderly"'}
+gr_edit .b1title.text = {`"(f) Proportion of elderly"'}
 graph save elderly_HIP, replace
 
 graph use young_HIP
-gr_edit .b1title.text = {`"(g) Mean proportion of young family"'}
+gr_edit .yaxis1.title.text = {`"Proportion of young family"'}
+gr_edit .b1title.text = {`"(g) Proportion of young family"'}
 graph save young_HIP, replace
 
 foreach v in ptype flatage fsize gender ethnicity elderly young{
 	graph use `v'_HIP
-	graph export `v'_HIP.tif
+	graph export `v'_HIP.tif,replace
 }
 graph combine ptype_HIP flatage_HIP fsize_HIP gender_HIP ethnicity_HIP elderly_HIP young_HIP, row(2) xsize(7) ysize(2.6) graphregion(color(white))
 graph save "Graph" Extended_figure3.gph, replace
@@ -570,20 +601,18 @@ graph export Extended_figure4.pdf, replace
 graph export Extended_figure4.tif, replace
 
 **Figure 5
-use data.dta, clear
-drop if ext==1
-gen dist=time- time_HIPcomp
-hist dist, freq
+use resale.dta, clear
 gen cn=1
 collapse (sum) cn, by(dist)
-keep if dist<36 & dist>-36
-
-tw (lfitci cn dist if dist<=0, color("white%80"))  (lfitci cn dist if dist>=0, color("white%80")) (lfit cn dist if dist<=0, lc(gray))  (lfit cn dist if dist>=0, lc(gray)) (scatter cn dist, mc(gray)), legend(off) ylab(0(200)800) xlab(-36(12)36) xline(0) xtitle("Distance to HIP completion (in months)") ytitle("Number of resale flats") ysize(2.5) xsize(3.45) scheme(plottig)
+keep if dist<24 & dist>-24
+tw (lfitci cn dist if dist<=0, color("white%80"))  (lfitci cn dist if dist>0, color("white%80")) (lfit cn dist if dist<=0, lc(gray))  (lfit cn dist if dist>=0, lc(gray)) (scatter cn dist, mc(gray)), legend(off) ylab(0(200)800) xlab(-24(12)24) xline(0) xtitle("Distance to HIP completion (in months)") ytitle("Number of resale flats") ysize(2.5) xsize(3.45) scheme(plottig)
 graph save resale_hiprd.gph, replace
 graph export Extended_figure5.pdf, replace
 graph export Extended_figure5.tif, replace
 
 **Figure 6
+use data.dta, clear
+drop if ext==1
 gen distance=time-time_HIPcomp
 cap drop distance_year
 gen distance_year=distance/12
@@ -625,11 +654,11 @@ graph export Extended_figure6.tif, replace
 
 **Figure 7
 ***Distribution
-hist temp_mean_r10km, xline(28.9) xtitle() title("Distribution of mean monthly temperature")
+hist temp_mean_r10km, xline(28.9) xtitle("") title("Distribution of mean monthly temperature") scheme(plottig) percent ylabel(0(2)8) start(25.3) width(0.1)
 graph save "Graph" dist_temp.gph, replace
-hist rain_days_r10km, xline(22.3) xtitle() title("Distribution of number of rainy days")
+hist rain_days_r10km, xline(22.3) xtitle("") title("Distribution of number of rainy days") scheme(plottig) percent ylabel(0(2)8) width(0.5)
 graph save "Graph" dist_rain.gph, replace
-hist psi_r10km, xline(100) xtitle() title("Distribution of PSI")
+hist psi_r10km, xline(100) xtitle("") title("Distribution of PSI") scheme(plottig) percent ylabel(0(2)8) width(1.5)
 graph save "Graph" dist_PSI.gph, replace
 
 ***Mean & SD
@@ -803,8 +832,7 @@ graph export Extended_figure10.pdf, replace
 graph export Extended_figure10.tif, replace
 
 *Supplementary Informaiton 
-**Section A
-***Figure A.1
+***Figure 1
 use data.dta, clear
 drop if ext==1
 keep if year_complete>1975 & year_complete<1997
@@ -822,8 +850,157 @@ gr_edit .ytitle.text = {}
 gr_edit .ytitle.text = {`"Residual water consumption"'}
 graph save SA_Figure1.gph, replace
 
-***Table A.1
+***Figure 2
+use data.clear
+drop if ext==1
+gen distance=time-time_HIPcomp
+cap drop distance_year
+gen distance_year=distance/12
+replace distance_year=floor(distance_year) if distance_year<0
+replace distance_year=ceil(distance_year) if distance_year>0
+replace distance_year=0 if distance_year==.
+replace distance_year=10 if distance_year>10
+replace distance_year=distance_year+10
+
+reghdfe ln_wat 1.HIP#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time if year_complete<2009 | year_complete!=., absorb(i.premiseno i.time) cluster(pcode time)
+eststo event_2009
+
+
+reghdfe ln_wat 1.HIP#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time if year_complete<=1997, absorb(i.premiseno i.time) cluster(pcode time)
+eststo event_1997
+
+reghdfe ln_wat 1.HIP#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time if year_complete<1987, absorb(i.premiseno i.time) cluster(pcode time)
+eststo event_1986
+
+
+reghdfe ln_wat 1.HIP#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time if HIP==1, absorb(i.premiseno i.time) cluster(pcode time) compact 
+eststo event_HIPonly
+
+reghdfe ln_wat 1.HIP#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time if year_complete>1970 & year_complete<1987, absorb(i.premiseno i.time) cluster(premiseno)
+eststo event_7186
+
+keep if year_complete==1986 | year_complete==1987
+replace post_comp=0 if year_complete==1987
+reghdfe ln_wat 1.HIP#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time, absorb(i.premiseno i.time) cluster(premiseno)
+eststo event_8687
+
+
+foreach v in 2009 1997 1986 HIPonly 7186 8687{
+coefplot event_`v',  keep(1.HIP#*.distance_year) scheme(plottig) ciopts(recast(rcap)) vertical ytitle("Log of monthly water consumption") ylabel(-0.10(0.05)0.10,format(%5.2f)) yline(0) base legend(off) coeflabels(1.HIP#1.distance_year="T-9" 1.HIP#2.distance_year="T-8" 1.HIP#3.distance_year="T-7" 1.HIP#4.distance_year="T-6" 1.HIP#5.distance_year="T-5" 1.HIP#6.distance_year="T-4" 1.HIP#7.distance_year="T-3" 1.HIP#8.distance_year="T-2" 1.HIP#9.distance_year="T-1" 1.HIP#10.distance_year="T0" 1.HIP#11.distance_year="T+1" 1.HIP#12.distance_year="T+2" 1.HIP#13.distance_year="T+3" 1.HIP#14.distance_year="T+4" 1.HIP#15.distance_year="T+5" 1.HIP#16.distance_year="T+6" 1.HIP#17.distance_year="T+7" 1.HIP#18.distance_year="T+8" 1.HIP#19.distance_year="T+9" 1.HIP#20.distance_year="T+10", angle(90)) omitted offset(0) xline(10) 
+graph save event_`v'.gph, replace
+}
+
+***Figure 3
+foreach i of num 1/4{
+reghdfe ln_wat 1.post_comp#i.mqt 1.HIP#c.time if ptype==`i', absorb(i.premiseno i.time) cluster(pcode time)
+eststo mqt_ptype`i'
+}
+
+coefplot mqt_ptype1, bylabel(1-/2-room) || mqt_ptype2, bylabel(3-room) || mqt_ptype3, bylabel(4-room) || mqt_ptype4, bylabel(5-room/Executive) ||, ///
+keep(1.post_comp#*.mqt) ciopts(recast(rcap)) coeflabels(1.post_comp#1.mqt="Q1" 1.post_comp#2.mqt="Q2" 1.post_comp#3.mqt="Q3" 1.post_comp#4.mqt="Q4") scheme(plottig) vertical ytitle("Log of  monthly water consumption") ysize(2.6) xsize(3.575) ylabel(,format(%5.2f)) yline(0) ylabel(-0.08(0.02)0.06) base omitted byopts(row(1)) 
+graph save "Graph" mqt_ptype.gph, replace
+
+foreach i of num 1/4{
+reghdfe ln_wat 1.post_comp#i.mqt 1.HIP#c.year if flatage==`i', absorb(i.premiseno i.time) cluster(pcode time)
+eststo mqt_age`i'
+}
+
+coefplot mqt_age1, bylabel("Before 1980") || mqt_age2, bylabel("1980-1983" ) || mqt_age3, bylabel("1984-1986") || mqt_age4, bylabel("1987-1997") ||, ///
+keep(1.post_comp#*.mqt) ciopts(recast(rcap)) coeflabels(1.post_comp#1.mqt="Q1" 1.post_comp#2.mqt="Q2" 1.post_comp#3.mqt="Q3" 1.post_comp#4.mqt="Q4") scheme(plottig) vertical ytitle("Log of  monthly water consumption") ysize(2.6) xsize(3.575) ylabel(,format(%5.2f)) yline(0) ylabel(-0.08(0.02)0.06) base omitted byopts(row(1)) 
+graph save "Graph" mqt_age.gph, replace
+
+***Figure 4
+recode nrent (0 = 1) (1 = 0), gen(nrent)
+replace nrent=rcat if nrent=1
+label def nrent 0 "HDB Rental" 1 "Quartile 1" 2 "Quartile 2" 3 "Quartile 3"  4 "Quartile 4" 
+label val nrent nrent
+
+foreach v in nrent flatage mqt ptype{
+graph bar (count) time, over(HIP) over(`v') ytitle(Frequency) ysize(2.6) xsize(3.575) ylabel(,format(%5.0f)) scheme(plottig) 
+graph save "Graph" hetd_`v'.gph, replace
+}
+
+
+***Figure 5
+tab mqt, gen(q)
+graph bar q1 q2 q3 q4, over(ptype, relabel(1 "1-/2-room" 2 "3-room" 3 "4-room" 4 "5-room/Executive")) percent stack legend(pos(6) row(1) lab(1 "Quartile 1") lab(2 "Quartile 2") lab(3 "Quartile 3") lab(4 "Quartile 4")) ytitle("Percent") ysize(2.6) xsize(3.575) ylabel(,format(%5.0f))
+graph save "Graph" consumption_ptype.gph, replace
+
+graph bar q1 q2 q3 q4, over(flatage) percent stack legend(pos(6) row(1) lab(1 "Quartile 1") lab(2 "Quartile 2") lab(3 "Quartile 3") lab(4 "Quartile 4")) ytitle("Percent") ysize(2.6) xsize(3.575) ylabel(,format(%5.0f))
+graph save "Graph" consumption_age.gph, replace
+
+***Figure 6
+foreach v in male chinese fsize elderly young{
+	graph bar (count) time, over(HIP) over(`v') ytitle(Frequency) ysize(2.6) xsize(3.575) ylabel(,format(%5.0f)) scheme(plottig)
+	graph save "Graph" hetd_`v'.gph, replace
+}
+
+***Figure 7
+use data.clear
+drop if ext==1
+gen distance=time-time_HIPcomp
+cap drop distance_year
+gen distance_year=distance/12
+replace distance_year=floor(distance_year) if distance_year<0
+replace distance_year=ceil(distance_year) if distance_year>0
+replace distance_year=0 if distance_year==. | distance_year<0
+replace distance_year=10 if distance_year>10
+replace distance_year=distance_year+10
+
+foreach v in rcat ptype flatage mqt{
+	foreach i of num 1/4{
+cap	reghdfe ln_wat 1.HIP#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time i.HIP#c.time if `v'=`i', absorb(i.premiseno i.time) cluster(premiseno)
+cap coefplot event_`v',  keep(1.HIP#*.distance_year) scheme(plottig) ciopts(recast(rcap)) vertical ytitle("Log of monthly water consumption") ylabel(-0.10(0.05)0.10,format(%5.2f)) yline(0) base legend(off) coeflabels(1.HIP#1.distance_year="Before" 1.HIP#2.distance_year="T+1" 1.HIP#3.distance_year="T+2" 1.HIP#4.distance_year="T+3" 1.HIP#5.distance_year="T+4" 1.HIP#6.distance_year="T+5" 1.HIP#7.distance_year="T+6" 1.HIP#8.distance_year="T+7" 1.HIP#9.distance_year="T+8" 1.HIP#10.distance_year="T+9" 1.HIP#11.distance_year="T+10", angle(90)) omitted offset(0) xline(10) 
+cap graph save event_`v'`i'.gph, replace
+	}
+}
+
+***Figure 8
+foreach v in male chinese fsize elderly young{
+	foreach i of num 1/4{
+reghdfe ln_wat 1.HIP#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time i.HIP#c.time if `v'=`i', absorb(i.premiseno i.time) cluster(premiseno)
+coefplot event_`v',  keep(1.HIP#*.distance_year) scheme(plottig) ciopts(recast(rcap)) vertical ytitle("Log of monthly water consumption") ylabel(-0.10(0.05)0.10,format(%5.2f)) yline(0) base legend(off) coeflabels(1.HIP#1.distance_year="Before" 1.HIP#2.distance_year="T+1" 1.HIP#3.distance_year="T+2" 1.HIP#4.distance_year="T+3" 1.HIP#5.distance_year="T+4" 1.HIP#6.distance_year="T+5" 1.HIP#7.distance_year="T+6" 1.HIP#8.distance_year="T+7" 1.HIP#9.distance_year="T+8" 1.HIP#10.distance_year="T+9" 1.HIP#11.distance_year="T+10", angle(90)) omitted offset(0) xline(10) 
+graph save event_`v'`i'.gph, replace
+	}
+}
+
+***Figure 9
+gen high_temp=(temp_mean_r10km>28.9)
+gen high_rain=(rain_days_r10km>22.3)
+gen high_psi=(psi_r10km>=100) 
+
+foreach v in high_temp high_rain high_psi{
+reghdfe ln_wat 1.HIP#1.`v'#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time i.HIP#c.time, absorb(i.premiseno i.time) cluster(premiseno)
+coefplot event_`v',  keep(1.HIP#*.distance_year) scheme(plottig) ciopts(recast(rcap)) vertical ytitle("Log of monthly water consumption") ylabel(-0.10(0.05)0.10,format(%5.2f)) yline(0) base legend(off) coeflabels(1.HIP#1.`v'#1.distance_year="Before" 1.HIP#1.`v'#2.distance_year="T+1" 1.HIP#1.`v'#3.distance_year="T+2" 1.HIP#1.`v'#4.distance_year="T+3" 1.HIP#1.`v'#5.distance_year="T+4" 1.HIP#1.`v'#6.distance_year="T+5" 1.HIP#1.`v'#7.distance_year="T+6" 1.HIP#1.`v'#8.distance_year="T+7" 1.HIP#1.`v'#9.distance_year="T+8" 1.HIP#1.`v'#10.distance_year="T+9" 1.HIP#1.`v'#11.distance_year="T+10", angle(90)) omitted offset(0) xline(10) 
+graph save event_`v'.gph, replace
+}
+
+***Figure 10
+bysort pcode ptype time: egen nb=mean(wat)
+bysort time: egen nt=mean(wat)
+gen above_nt=(wat>nt)
+gen above_nb=(wat>nb)
+bysort premiseno (time): gen above_nt_lag=above_nt[_n-1]
+bysort premiseno (time): gen above_nb_lag=above_nb[_n-1]
+
+gen message=1 if above_nt_lag==0 & above_nb_lag==0
+replace message=2 if above_nt_lag==1 & above_nb_lag==0
+replace message=3 if above_nt_lag==0 & above_nb_lag==1
+replace message=4 if above_nt_lag==1 & above_nb_lag==1
+
+foreach i of num 1/4{
+	graph bar (count) time if message==`i', over(decile) ytitle(Frequency) ysize(2.6) xsize(3.575) ylabel(0(2000000)10000000,format(%5.0f)) scheme(plottig)
+	graph save hetd_decile_m`i'.gph, replace
+	graph bar (count) time if message==`i', over(ptype) ytitle(Frequency) ysize(2.6) xsize(3.575) ylabel(0(4000000)20000000,format(%5.0f)) scheme(plottig)
+	graph save hetd_ptype_m`i'.gph, replace
+	graph bar (count) time if message==`i', over(post_comp) ytitle(Frequency) ysize(2.6) xsize(3.575) ylabel(0(2000000)10000000,format(%5.0f)) scheme(plottig)
+	graph save hetd_HIP_m`i'.gph, replace
+}
+
+
+***Table 1
 use data.dta, clear
+keep sc==1
 reghdfe ln_wat post_comp ln_temp ln_rain ln_psi i.HIP#c.time, absorb(i.premiseno i.time) cluster(pcode time)
 eststo baseline
 estadd local premise "Yes"
@@ -879,7 +1056,7 @@ eqlabels(none) cells("b(fmt(3)star)" "se(fmt(3)par)")  ///
 nogaps booktabs f varlabel(post_comp "HIP*Completed") refcat(post_comp "\midrule", nolabel) ///
 collabels(none) mtitles("18 months(baseline)" "18 months(w/o in-between sample)" "24 months" "30 months" "Billing") nolines stats(weather pollution trend premise ym N r2, fmt(0 0 0 0 0 %12.0fc 3) label("Weather control" "Pollution control" "Group time trend" "Account FE" "Year-month FE" "N" "R$^2$"))
 
-***Table A.2
+***Table 2
 use data.dta, clear
 drop if ext==1
 tab ptype, gen(d_ptype)
@@ -919,7 +1096,7 @@ matrix rownames TableA2="Mean before HIP (m3)" "Before 1980" "1980-1983" "1984-1
 matrix colnames TableA2="<=2008" "<=1997" "<=1986" "1971-86" "1986-87"
 mat2txt, matrix(TableA2) saving(TableA2)
 
-***Table A.3
+***Table 3
 use data.clear
 reghdfe ln_wat post_comp ln_temp ln_rain ln_psi i.HIP#c.time, absorb(i.premiseno i.time) cluster(pcode time)
 eststo extreme
@@ -998,7 +1175,7 @@ eqlabels(none) cells("b(fmt(3)star)" "se(fmt(3)par)") ///
 nogaps booktabs f varlabel(post_comp "HIP*Completed") refcat(post_comp "\midrule", nolabel) ///
 collabels(none) mtitles("Baseline" "\$\le\$2008" "\$\le\$1997" "\$\le\$1986" "1971-86" "HIP only" "1986-87" "w/ extremes" ) nolines stats(weather pollution trend premise ym N r2, fmt(0 0 0 0 0 %12.0fc 3) label("Weather control" "Pollution control" "Group time trend" "Account FE" "Year-month FE" "N" "R$^2$"))
 
-***Table A.4
+***Table 4
 use data.clear
 drop if ext=1
 reghdfe ln_wat post_comp i.HIP#c.time, absorb(i.premiseno i.time) cluster(pcode time)
@@ -1079,7 +1256,7 @@ eqlabels(none) cells("b(fmt(3)star)" "se(fmt(3)par)") ///
 nogaps booktabs f varlabel(post_comp "HIP*Completed") refcat(post_comp "\midrule", nolabel) ///
 collabels(none) nomtitles nolines stats(weather pollution trend premise pcode ym year month psecy N r2, fmt(0 0 0 0 0 0 0 0 0 %12.0fc 3) label("Weather control" "Pollution control" "Group time trend" "Account FE" "Block FE" "Year-month FE" "Year FE" "Month FE" "Region-year FE" "N" "R$^2$"))
 
-***Table A.5
+***Table 5
 reghdfe ln_wat post_comp ln_temp ln_rain ln_psi i.HIP#c.time, absorb(i.premiseno i.time) cluster(premiseno time)
 eststo cluster_premise
 estadd local premise "Yes"
@@ -1117,169 +1294,23 @@ eqlabels(none) cells("b(fmt(3)star)" "se(fmt(3)par)") ///
 nogaps booktabs f varlabel(post_comp "HIP*Completed") refcat(post_comp "\midrule", nolabel) ///
 collabels(none) mtitles("Account, Year-month" "Block, Year-month" "Account" "Block") nolines stats(weather pollution trend premise ym N r2, fmt(0 0 0 0 0 %12.0fc 3) label("Weather control" "Pollution control" "Group time trend" "Account FE" "Year-month FE" "N" "R$^2$"))
 
-**Section B
-***Table B.3
+***Table 9
 use resale.dta
+gen ln_price=log(resale_price)
 foreach i of num 1/4{
-	reghdfe ln_price post_comp#i.ptype floor sqm if ptype==`i', absorb(i.pcode i.psec#i.time) cluster(pcode time)
+	reghdfe ln_price 1.post_comp#`i'.ptype sqm i.floor if ptype==`i', absorb(i.bid i.time) cluster(bid time)
+	estadd local flat "Yes"
+    estadd local ym "Yes"
+	estadd local nbfe "Yes"
 	eststo ptype`i'
 } 
 esttab ptype1 ptype2 ptype3 ptype4 using TableB3.tex, keep(1.post_comp#*.ptype) se star(* 0.10 ** 0.05 *** 0.01) r2(3) ///
-eqlabels(none) cells("b(fmt(3)star)" "se(fmt(3)par)") ///
+eqlabels(none) cells("b(fmt(4)star)" "se(fmt(3)par)") ///
 nogaps booktabs f varlabel(1.post_comp#1.ptype "Post*HIP*HDB 1-/2-room" 1.post_comp#2.ptype "Post*HIP*HDB 3-room" 1.post_comp#3.ptype "Post*HIP*HDB 4-room" 1.post_comp#4.ptype "Post*HIP*HDB 4-room/Executive" ) refcat(1.post_comp#1.ptype "\midrule", nolabel) ///
-collabels(none) nomtitles nolines stats(trend premise ym N r2, fmt(0 0 0 0 3) label("Group time trend" "Premise FE" "Year-month FE" "N" "R$^2$"))
-
-**Section C
-***Figure C.1
-use data.clear
-drop if ext==1
-gen distance=time-time_HIPcomp
-cap drop distance_year
-gen distance_year=distance/12
-replace distance_year=floor(distance_year) if distance_year<0
-replace distance_year=ceil(distance_year) if distance_year>0
-replace distance_year=0 if distance_year==.
-replace distance_year=10 if distance_year>10
-replace distance_year=distance_year+10
-
-reghdfe ln_wat 1.HIP#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time if year_complete<2009 | year_complete!=., absorb(i.premiseno i.time) cluster(pcode time)
-eststo event_2009
+collabels(none) nomtitles nolines stats(flat nbfe ym N r2, fmt(0 0 0 0 3) label("Flat characteristics" "Neighbourhood FE" "Year-month FE" "N" "R$^2$"))
 
 
-reghdfe ln_wat 1.HIP#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time if year_complete<=1997, absorb(i.premiseno i.time) cluster(pcode time)
-eststo event_1997
-
-reghdfe ln_wat 1.HIP#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time if year_complete<1987, absorb(i.premiseno i.time) cluster(pcode time)
-eststo event_1986
-
-
-reghdfe ln_wat 1.HIP#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time if HIP==1, absorb(i.premiseno i.time) cluster(pcode time) compact 
-eststo event_HIPonly
-
-reghdfe ln_wat 1.HIP#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time if year_complete>1970 & year_complete<1987, absorb(i.premiseno i.time) cluster(premiseno)
-eststo event_7186
-
-keep if year_complete==1986 | year_complete==1987
-replace post_comp=0 if year_complete==1987
-reghdfe ln_wat 1.HIP#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time, absorb(i.premiseno i.time) cluster(premiseno)
-eststo event_8687
-
-
-foreach v in 2009 1997 1986 HIPonly 7186 8687{
-coefplot event_`v',  keep(1.HIP#*.distance_year) scheme(plottig) ciopts(recast(rcap)) vertical ytitle("Log of monthly water consumption") ylabel(-0.10(0.05)0.10,format(%5.2f)) yline(0) base legend(off) coeflabels(1.HIP#1.distance_year="T-9" 1.HIP#2.distance_year="T-8" 1.HIP#3.distance_year="T-7" 1.HIP#4.distance_year="T-6" 1.HIP#5.distance_year="T-5" 1.HIP#6.distance_year="T-4" 1.HIP#7.distance_year="T-3" 1.HIP#8.distance_year="T-2" 1.HIP#9.distance_year="T-1" 1.HIP#10.distance_year="T0" 1.HIP#11.distance_year="T+1" 1.HIP#12.distance_year="T+2" 1.HIP#13.distance_year="T+3" 1.HIP#14.distance_year="T+4" 1.HIP#15.distance_year="T+5" 1.HIP#16.distance_year="T+6" 1.HIP#17.distance_year="T+7" 1.HIP#18.distance_year="T+8" 1.HIP#19.distance_year="T+9" 1.HIP#20.distance_year="T+10", angle(90)) omitted offset(0) xline(10) 
-graph save event_`v'.gph, replace
-}
-
-***Figure C.2
-foreach i of num 1/4{
-reghdfe ln_wat 1.post_comp#i.mqt 1.HIP#c.time if ptype==`i', absorb(i.premiseno i.time) cluster(pcode time)
-eststo mqt_ptype`i'
-}
-
-coefplot mqt_ptype1, bylabel(1-/2-room) || mqt_ptype2, bylabel(3-room) || mqt_ptype3, bylabel(4-room) || mqt_ptype4, bylabel(5-room/Executive) ||, ///
-keep(1.post_comp#*.mqt) ciopts(recast(rcap)) coeflabels(1.post_comp#1.mqt="Q1" 1.post_comp#2.mqt="Q2" 1.post_comp#3.mqt="Q3" 1.post_comp#4.mqt="Q4") scheme(plottig) vertical ytitle("Log of  monthly water consumption") ysize(2.6) xsize(3.575) ylabel(,format(%5.2f)) yline(0) ylabel(-0.08(0.02)0.06) base omitted byopts(row(1)) 
-graph save "Graph" mqt_ptype.gph, replace
-
-foreach i of num 1/4{
-reghdfe ln_wat 1.post_comp#i.mqt 1.HIP#c.year if flatage==`i', absorb(i.premiseno i.time) cluster(pcode time)
-eststo mqt_age`i'
-}
-
-coefplot mqt_age1, bylabel("Before 1980") || mqt_age2, bylabel("1980-1983" ) || mqt_age3, bylabel("1984-1986") || mqt_age4, bylabel("1987-1997") ||, ///
-keep(1.post_comp#*.mqt) ciopts(recast(rcap)) coeflabels(1.post_comp#1.mqt="Q1" 1.post_comp#2.mqt="Q2" 1.post_comp#3.mqt="Q3" 1.post_comp#4.mqt="Q4") scheme(plottig) vertical ytitle("Log of  monthly water consumption") ysize(2.6) xsize(3.575) ylabel(,format(%5.2f)) yline(0) ylabel(-0.08(0.02)0.06) base omitted byopts(row(1)) 
-graph save "Graph" mqt_age.gph, replace
-
-***Figure C.3
-recode nrent (0 = 1) (1 = 0), gen(nrent)
-replace nrent=rcat if nrent=1
-label def nrent 0 "HDB Rental" 1 "Quartile 1" 2 "Quartile 2" 3 "Quartile 3"  4 "Quartile 4" 
-label val nrent nrent
-
-foreach v in nrent flatage mqt ptype{
-graph bar (count) time, over(HIP) over(`v') ytitle(Frequency) ysize(2.6) xsize(3.575) ylabel(,format(%5.0f)) scheme(plottig) 
-graph save "Graph" hetd_`v'.gph, replace
-}
-
-
-***Figure C.4
-tab mqt, gen(q)
-graph bar q1 q2 q3 q4, over(ptype, relabel(1 "1-/2-room" 2 "3-room" 3 "4-room" 4 "5-room/Executive")) percent stack legend(pos(6) row(1) lab(1 "Quartile 1") lab(2 "Quartile 2") lab(3 "Quartile 3") lab(4 "Quartile 4")) ytitle("Percent") ysize(2.6) xsize(3.575) ylabel(,format(%5.0f))
-graph save "Graph" consumption_ptype.gph, replace
-
-graph bar q1 q2 q3 q4, over(flatage) percent stack legend(pos(6) row(1) lab(1 "Quartile 1") lab(2 "Quartile 2") lab(3 "Quartile 3") lab(4 "Quartile 4")) ytitle("Percent") ysize(2.6) xsize(3.575) ylabel(,format(%5.0f))
-graph save "Graph" consumption_age.gph, replace
-
-***Figure C.5
-foreach v in male chinese fsize elderly young{
-	graph bar (count) time, over(HIP) over(`v') ytitle(Frequency) ysize(2.6) xsize(3.575) ylabel(,format(%5.0f)) scheme(plottig)
-	graph save "Graph" hetd_`v'.gph, replace
-}
-
-***Figure C.6
-use data.clear
-drop if ext==1
-gen distance=time-time_HIPcomp
-cap drop distance_year
-gen distance_year=distance/12
-replace distance_year=floor(distance_year) if distance_year<0
-replace distance_year=ceil(distance_year) if distance_year>0
-replace distance_year=0 if distance_year==. | distance_year<0
-replace distance_year=10 if distance_year>10
-replace distance_year=distance_year+10
-
-foreach v in rcat ptype flatage mqt{
-	foreach i of num 1/4{
-cap	reghdfe ln_wat 1.HIP#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time i.HIP#c.time if `v'=`i', absorb(i.premiseno i.time) cluster(premiseno)
-cap coefplot event_`v',  keep(1.HIP#*.distance_year) scheme(plottig) ciopts(recast(rcap)) vertical ytitle("Log of monthly water consumption") ylabel(-0.10(0.05)0.10,format(%5.2f)) yline(0) base legend(off) coeflabels(1.HIP#1.distance_year="Before" 1.HIP#2.distance_year="T+1" 1.HIP#3.distance_year="T+2" 1.HIP#4.distance_year="T+3" 1.HIP#5.distance_year="T+4" 1.HIP#6.distance_year="T+5" 1.HIP#7.distance_year="T+6" 1.HIP#8.distance_year="T+7" 1.HIP#9.distance_year="T+8" 1.HIP#10.distance_year="T+9" 1.HIP#11.distance_year="T+10", angle(90)) omitted offset(0) xline(10) 
-cap graph save event_`v'`i'.gph, replace
-	}
-}
-
-***Figure C.7
-foreach v in male chinese fsize elderly young{
-	foreach i of num 1/4{
-reghdfe ln_wat 1.HIP#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time i.HIP#c.time if `v'=`i', absorb(i.premiseno i.time) cluster(premiseno)
-coefplot event_`v',  keep(1.HIP#*.distance_year) scheme(plottig) ciopts(recast(rcap)) vertical ytitle("Log of monthly water consumption") ylabel(-0.10(0.05)0.10,format(%5.2f)) yline(0) base legend(off) coeflabels(1.HIP#1.distance_year="Before" 1.HIP#2.distance_year="T+1" 1.HIP#3.distance_year="T+2" 1.HIP#4.distance_year="T+3" 1.HIP#5.distance_year="T+4" 1.HIP#6.distance_year="T+5" 1.HIP#7.distance_year="T+6" 1.HIP#8.distance_year="T+7" 1.HIP#9.distance_year="T+8" 1.HIP#10.distance_year="T+9" 1.HIP#11.distance_year="T+10", angle(90)) omitted offset(0) xline(10) 
-graph save event_`v'`i'.gph, replace
-	}
-}
-
-***Figure C.8
-gen high_temp=(temp_mean_r10km>28.9)
-gen high_rain=(rain_days_r10km>22.3)
-gen high_psi=(psi_r10km>=100) 
-
-foreach v in high_temp high_rain high_psi{
-reghdfe ln_wat 1.HIP#1.`v'#ib1.distance_year ln_temp ln_rain ln_psi 1.HIP#c.time i.HIP#c.time, absorb(i.premiseno i.time) cluster(premiseno)
-coefplot event_`v',  keep(1.HIP#*.distance_year) scheme(plottig) ciopts(recast(rcap)) vertical ytitle("Log of monthly water consumption") ylabel(-0.10(0.05)0.10,format(%5.2f)) yline(0) base legend(off) coeflabels(1.HIP#1.`v'#1.distance_year="Before" 1.HIP#1.`v'#2.distance_year="T+1" 1.HIP#1.`v'#3.distance_year="T+2" 1.HIP#1.`v'#4.distance_year="T+3" 1.HIP#1.`v'#5.distance_year="T+4" 1.HIP#1.`v'#6.distance_year="T+5" 1.HIP#1.`v'#7.distance_year="T+6" 1.HIP#1.`v'#8.distance_year="T+7" 1.HIP#1.`v'#9.distance_year="T+8" 1.HIP#1.`v'#10.distance_year="T+9" 1.HIP#1.`v'#11.distance_year="T+10", angle(90)) omitted offset(0) xline(10) 
-graph save event_`v'.gph, replace
-}
-
-***Figure C.9
-bysort pcode ptype time: egen nb=mean(wat)
-bysort time: egen nt=mean(wat)
-gen above_nt=(wat>nt)
-gen above_nb=(wat>nb)
-bysort premiseno (time): gen above_nt_lag=above_nt[_n-1]
-bysort premiseno (time): gen above_nb_lag=above_nb[_n-1]
-
-gen message=1 if above_nt_lag==0 & above_nb_lag==0
-replace message=2 if above_nt_lag==1 & above_nb_lag==0
-replace message=3 if above_nt_lag==0 & above_nb_lag==1
-replace message=4 if above_nt_lag==1 & above_nb_lag==1
-
-foreach i of num 1/4{
-	graph bar (count) time if message==`i', over(decile) ytitle(Frequency) ysize(2.6) xsize(3.575) ylabel(0(2000000)10000000,format(%5.0f)) scheme(plottig)
-	graph save hetd_decile_m`i'.gph, replace
-	graph bar (count) time if message==`i', over(ptype) ytitle(Frequency) ysize(2.6) xsize(3.575) ylabel(0(4000000)20000000,format(%5.0f)) scheme(plottig)
-	graph save hetd_ptype_m`i'.gph, replace
-	graph bar (count) time if message==`i', over(post_comp) ytitle(Frequency) ysize(2.6) xsize(3.575) ylabel(0(2000000)10000000,format(%5.0f)) scheme(plottig)
-	graph save hetd_HIP_m`i'.gph, replace
-}
-
-
-
-***Table C.4
+***Table 14
 use data.clear
 drop if ext==1
 gen high_temp=(temp_mean_r10km>28.9)
