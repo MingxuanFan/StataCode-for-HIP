@@ -255,7 +255,7 @@ replace message=4 if above_nt_lag==1 & above_nb_lag==1
 reghdfe ln_wat 1.post#i.message drought pchg ln_temp ln_rain ln_psi time, absorb(i.premiseno i.month) cluster(pcode time) compact poolsize(5)
 eststo message 
 
-coefplot message, keep(1.post#*.message ) scheme(plottig) mc(black) ciopts(lcolor(black) recast(rcap)) offset(0) legend(off) vertical ytitle("Log of monthly water consumption") yline(0) ysize(2.5) xsize(3.45)  ylabel(-0.10(0.05)0.10,format(%5.2f)) yline(-0.003,linestyle(pattern(solid) color(gray))) yline(-0.012,linestyle(color(gray))) yline(-0.006,linestyle(color(gray))) omitted xtitle(" ") baselevels coeflabels(1.post#1.message = `""<neighorhood" "<national""' 1.post#2.message = `""<neighorhood" ">national""' 1.post#3.message = `"">neighorhood" "<national ""' 1.post#4.message = `"">neighorhood" ">national""') 
+coefplot message, keep(1.post#*.message ) scheme(plottig) mc(black) ciopts(lcolor(black) recast(rcap)) offset(0) legend(off) vertical ytitle("Log of monthly water consumption") yline(0) ysize(2.5) xsize(3.45)  ylabel(-0.10(0.05)0.10,format(%5.2f)) yline(-0.003,lstyle(pattern(solid) color(gray))) yline(-0.012,lstyle(color(gray))) yline(0.006,lstyle(color(gray))) omitted xtitle(" ") baselevels coeflabels(1.post#1.message = `""<neighorhood" "<national""' 1.post#2.message = `""<neighorhood" ">national""' 1.post#3.message = `"">neighorhood" "<national ""' 1.post#4.message = `"">neighorhood" ">national""') 
 graph save billupdate_message.gph, replace
 
 gr_edit .b1title.text = {`"(b) By message received"'}
@@ -284,7 +284,7 @@ foreach v in decile ptype post_comp{
 }
 
 ***Figure 7a-d
-coefplot bm_decile, keep(1.post#1.message#1.decile 1.post#1.message#2.decile 1.post#1.message#3.decile 1.post#1.message#4.decile  1.post#1.message#5.decile 1.post#1.message#6.decile 1.post#1.message#7.decile 1.post#1.message#8.decile 1.post#1.message#9.decile 1.post#1.message#10.decile) scheme(plottig) mc(black) ciopts(lcolor(black) recast(rcap)) offset(0) legend(off) vertical ytitle("Log of monthly water consumption") yline(0) ysize(2.5) xsize(3.45) ylabel(-0.10(0.05)0.10,format(%5.2f)) yline(0) omitted baselevels coeflabels(1.post#*.message#1.decile="1" 1.post#*.message#2.decile="2" 1.post#*.message#3.decile="3" 1.post#*.message#4.decile="4" 1.post#*.message#5.decile="5" 1.post#*.message#6.decile="6" 1.post#*.message#7.decile="7" 1.post#*.message#8.decile="8" 1.post#*.message#9.decile="9" 1.post#*.message#10.decile="10")  
+coefplot bm_decile, keep(1.post#1.message#1.decile 1.post#1.message#2.decile 1.post#1.message#3.decile 1.post#1.message#4.decile  1.post#1.message#5.decile 1.post#1.message#6.decile 1.post#1.message#7.decile 1.post#1.message#8.decile 1.post#1.message#9.decile 1.post#1.message#10.decile) scheme(plottig) mc(black) ciopts(lcolor(black) recast(rcap)) offset(0) legend(off) vertical ytitle("Log of monthly water consumption") yline(0) ysize(2.5) xsize(3.45) ylabel(-0.10(0.05)0.10,format(%5.2f)) yline(0)  yline(-0.003,lstyle(pattern(solid) color(gray))) yline(-0.012,lstyle(color(gray))) yline(0.006,lstyle(color(gray)))  omitted baselevels coeflabels(1.post#*.message#1.decile="1" 1.post#*.message#2.decile="2" 1.post#*.message#3.decile="3" 1.post#*.message#4.decile="4" 1.post#*.message#5.decile="5" 1.post#*.message#6.decile="6" 1.post#*.message#7.decile="7" 1.post#*.message#8.decile="8" 1.post#*.message#9.decile="9" 1.post#*.message#10.decile="10")  
 
 		
 graph save bm1_decile.gph, replace
@@ -707,14 +707,12 @@ gen d8=(time==686)
 gen d9=(time==687)
 gen d10=(time==688)
 gen d11=(time==689)
-gen d12=(time==690)
-gen d13=(time==691)
-gen after=(time>691)
+gen after=(time>689)
 
-reghdfe ln_wat d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 d12 d13 after ln_temp ln_rain ln_psi time, absorb(i.premiseno i.month) cluster(pcode time) compact poolsize(1)
+reghdfe ln_wat d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 after ln_temp ln_rain ln_psi time, absorb(i.premiseno i.month) cluster(pcode time) compact poolsize(1)
 eststo bill_event
 
-coefplot bill_event, keep(d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 pchg) scheme(plottig) ciopts(recast(rcap)) vertical ytitle("Log of monthly water consumption") xsize(3.45) ysize(2.5) ylabel(-0.08(0.02)0.08,format(%5.2f)) yline(0) base legend(off) omitted offset(0) xline(1.5) xline(5.5) xline(8.5) coeflabels(d0="Before" d1="m1" d2="m2" d3="m3" d4="m4" d5="m5" d6="m6" d7="m7" d8="m8" d9="m9"d10="m10" pchg="After")
+coefplot bill_event, keep(d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 after) scheme(plottig) ciopts(recast(rcap)) vertical ytitle("Log of monthly water consumption") xsize(3.45) ysize(2.5) ylabel(-0.08(0.02)0.08,format(%5.2f)) yline(0) base legend(off) omitted offset(0) xline(1.5) xline(5.5) xline(8.5) coeflabels(d0="Before" d1="m1" d2="m2" d3="m3" d4="m4" d5="m5" d6="m6" d7="m7" d8="m8" d9="m9"d10="m10" after="After")
 
 graph save "Graph" Extended_figure9.gph, replace
 graph export Extended_figure9.pdf, replace	
